@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Consumables Inventory Prototype</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+    <!-- Header -->
+    <header class="max-w-4xl mx-auto py-8 px-4">
+        <h1 class="text-3xl font-bold text-slate-900">Home Consumables</h1>
+        <p class="text-slate-600 mt-1">Track household inventory, stock levels, and consumption duration across rooms.</p>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto px-4 pb-16">
+        
+        <!-- Action Bar, Search, Sort & Export -->
+        <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <span id="total-items-count" class="text-sm font-semibold text-slate-700">Loading items...</span>
+                <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <button onclick="copyShoppingList()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-medium text-sm transition shadow-sm cursor-pointer">
+                        📋 Copy Shopping List
+                    </button>
+                    <button onclick="openRoomModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg font-medium text-sm transition shadow-sm cursor-pointer">
+                        + Room
+                    </button>
+                    <button onclick="openItemModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-medium text-sm transition shadow-sm cursor-pointer">
+                        + Item
+                    </button>
+                </div>
+            </div>
+            <!-- Search & Sort Controls -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="search-input" oninput="handleSearch()" placeholder="🔍 Search for any item across rooms (e.g., shampoo, batteries)..." class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                <select id="sort-select" onchange="handleSortChange()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                    <option value="alpha_asc">Sort: Alphabetical (A-Z)</option>
+                    <option value="alpha_desc">Sort: Reverse (Z-A)</option>
+                    <option value="recent">Sort: Recently Added/Restocked</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Categories / Rooms Grid -->
+        <div id="rooms-container" class="space-y-4">
+            <!-- Dynamically injected via JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- Toast Notification for Copy -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition-opacity duration-300 opacity-0 pointer-events-none z-50">
+        🛒 Shopping list copied to clipboard!
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="add-item-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <h3 class="text-xl font-bold text-slate-900 mb-4">Add New Consumable</h3>
+            <form id="add-item-form" onsubmit="handleAddItem(event)">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
+                    <input type="text" id="new-item-name" required oninput="checkDuplicateWarning()" placeholder="e.g., Paper towels" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <!-- Warning hint container -->
+                <div id="duplicate-warning" class="mb-4 text-xs font-medium text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 hidden"></div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Room / Category</label>
+                    <select id="new-item-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeItemModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-sm cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm shadow-sm cursor-pointer">Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Room Modal -->
+    <div id="add-room-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <h3 class="text-xl font-bold text-slate-900 mb-4">Add New Room / Category</h3>
+            <form id="add-room-form" onsubmit="handleAddRoom(event)">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Room Name</label>
+                    <input type="text" id="new-room-name" required placeholder="e.g., Garage, Office" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeRoomModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-sm cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium text-sm shadow-sm cursor-pointer">Save Room</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initial Default Data Structure
+        const defaultData = [
+            {
+                category: "Bathroom/Toilet",
+                items: [
+                    "Shower gel", "Conditioner", "Shampoo", "Toothpaste", "Hair removal cream", 
+                    "Tissue", "Hand soap / bar soap", "Dental floss", "Mouthwash", 
+                    "Razor blades / disposable razors", "Shaving cream / gel", 
+                    "Cotton buds / cotton pads", "Deodorant / antiperspirant", "Contact lens solution"
+                ]
+            },
+            {
+                category: "Kitchen",
+                items: [
+                    "Washing up liquid", "Kitchen towel", "Cooking oil", "Dishwasher tablets", 
+                    "Scourer", "Salt", "Bin bags / trash bags", "Tin foil / aluminum foil", 
+                    "Cling film / plastic wrap", "Baking paper / parchment paper", "Sponge / dish cloths", 
+                    "Dishwasher rinse aid", "Dishwasher cleaner / machine descaler", 
+                    "Food storage bags / ziplock bags", "Napkins / paper napkins", 
+                    "Tea towels (paper or cloth)", "Coffee filter papers"
+                ]
+            },
+            {
+                category: "Laundry room",
+                items: [
+                    "Washing detergent", "Conditioner", "Fabric softener / scent boosters", 
+                    "Laundry stain remover spray", "Tumble dryer sheets", "Washing machine cleaner tablet"
+                ]
+            },
+            {
+                category: "Dining room",
+                items: [
+                    "Candles", "Matches / lighter", "Paper coasters / table runners (if disposable)"
+                ]
+            },
+            {
+                category: "Living room",
+                items: [
+                    "Light bulbs", "Tea lights / scented candles", 
+                    "AA and AAA batteries (for remotes, controllers, etc.)", "Board game score pads / pens"
+                ]
+            },
+            {
+                category: "Shed",
+                items: [
+                    "Fertiliser", "Grass seed", "Weed killer / moss remover", 
+                    "Garden twine / plant ties", "WD-40 / multi-use lubricant", 
+                    "Car screen wash", "BBQ charcoal / lighter fluid", "Pest control traps / bait"
+                ]
+            },
+            {
+                category: "Bedrooms",
+                items: [
+                    "Scented drawer liners", "Pillow sprays / linen freshness sprays"
+                ]
+            }
+        ];
+
+        // State Management with LocalStorage
+        let inventoryData = JSON.parse(localStorage.getItem('home_consumables_inventory'));
+        let collapsedRooms = JSON.parse(localStorage.getItem('home_consumables_collapsed')) || {};
+        let currentSort = localStorage.getItem('home_consumables_sort') || 'alpha_asc';
+
+        if (!inventoryData) {
+            initializeStorage();
+        } else {
+            document.getElementById('sort-select').value = currentSort;
+        }
+
+        function initializeStorage() {
+            const todayStr = new Date().toISOString();
+            inventoryData = defaultData.map(group => ({
+                category: group.category,
+                items: group.items.map(itemName => ({
+                    id: 'item_' + Math.random().toString(36).substring(2, 9),
+                    name: itemName,
+                    status: 'fully_stocked',
+                    lastStockedDate: todayStr,
+                    isCustom: false
+                }))
+            }));
+            saveState();
+        }
+
+        function saveState() {
+            localStorage.setItem('home_consumables_inventory', JSON.stringify(inventoryData));
+            localStorage.setItem('home_consumables_collapsed', JSON.stringify(collapsedRooms));
+            localStorage.setItem('home_consumables_sort', currentSort);
+        }
+
+        function saveAndRender() {
+            saveState();
+            renderApp();
+        }
+
+        function toggleRoom(categoryName) {
+            collapsedRooms[categoryName] = !collapsedRooms[categoryName];
+            saveState();
+            renderApp();
+        }
+
+        function handleSearch() {
+            renderApp();
+        }
+
+        function handleSortChange() {
+            currentSort = document.getElementById('sort-select').value;
+            saveAndRender();
+        }
+
+        function getDaysAgo(dateString) {
+            if (!dateString) return 0;
+            const lastDate = new Date(dateString);
+            const today = new Date();
+            lastDate.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+            const diffTime = today - lastDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 ? diffDays : 0;
+        }
+
+        function copyShoppingList() {
+            let listText = "🛒 Home Shopping List:\n";
+            let itemsFound = false;
+
+            inventoryData.forEach(group => {
+                const needsAttention = group.items.filter(i => i.status === 'running_low' || i.status === 'out_of_stock');
+                if (needsAttention.length > 0) {
+                    itemsFound = true;
+                    listText += `\n📁 ${group.category}:\n`;
+                    needsAttention.forEach(item => {
+                        const statusLabel = item.status === 'out_of_stock' ? 'Out of Stock' : 'Running Low';
+                        listText += `  - ${item.name} (${statusLabel})\n`;
+                    });
+                }
+            });
+
+            if (!itemsFound) {
+                alert("Great news! No items are currently running low or out of stock.");
+                return;
+            }
+
+            navigator.clipboard.writeText(listText).then(() => {
+                showToast();
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // Render Application UI
+        function renderApp() {
+            const container = document.getElementById('rooms-container');
+            const categorySelect = document.getElementById('new-item-category');
+            const searchQuery = document.getElementById('search-input').value.toLowerCase().trim();
+            
+            container.innerHTML = '';
+            categorySelect.innerHTML = '';
+
+            let totalItemsCount = 0;
+            let totalAttentionCount = 0;
+
+            inventoryData.forEach(group => {
+                totalItemsCount += group.items.length;
+                const isCollapsed = collapsedRooms[group.category] || false;
+
+                const attentionCount = group.items.filter(i => i.status === 'running_low' || i.status === 'out_of_stock').length;
+                totalAttentionCount += attentionCount;
+
+                const option = document.createElement('option');
+                option.value = group.category;
+                option.textContent = group.category;
+                categorySelect.appendChild(option);
+
+                // Filter items by search query
+                let filteredItems = group.items.filter(item => item.name.toLowerCase().includes(searchQuery));
+
+                // Sort items based on currentSort setting
+                filteredItems.sort((a, b) => {
+                    if (currentSort === 'alpha_asc') {
+                        return a.name.localeCompare(b.name);
+                    } else if (currentSort === 'alpha_desc') {
+                        return b.name.localeCompare(a.name);
+                    } else if (currentSort === 'recent') {
+                        return new Date(b.lastStockedDate) - new Date(a.lastStockedDate);
+                    }
+                    return 0;
+                });
+
+                if (searchQuery && filteredItems.length === 0) {
+                    return;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
+
+                let itemsHTML = '';
+                const forceOpen = searchQuery.length > 0;
+                if (forceOpen || !isCollapsed) {
+                    if (filteredItems.length === 0) {
+                        itemsHTML = `<p class="text-sm text-slate-400 italic p-4">No items in this room yet.</p>`;
+                    } else {
+                        itemsHTML = `<ul class="divide-y divide-slate-100">`;
+                        filteredItems.forEach(item => {
+                            let statusBadge = '';
+                            if (item.status === 'fully_stocked') {
+                                statusBadge = `<span class="px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full">Fully Stocked (100%)</span>`;
+                            } else if (item.status === 'in_stock') {
+                                statusBadge = `<span class="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-full">In Stock (+40%)</span>`;
+                            } else if (item.status === 'running_low') {
+                                statusBadge = `<span class="px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded-full">Running Low (-40%)</span>`;
+                            } else {
+                                statusBadge = `<span class="px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700 rounded-full">Out of Stock (0%)</span>`;
+                            }
+
+                            const daysAgo = getDaysAgo(item.lastStockedDate);
+                            const daysText = daysAgo === 0 ? 'Restocked today' : `Restocked ${daysAgo}d ago`;
+
+                            itemsHTML += `
+                                <li class="px-5 py-3 flex items-center justify-between hover:bg-slate-50/50 transition">
+                                    <div class="flex items-center space-x-3">
+                                        <div>
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-sm font-medium text-slate-800">${item.name}</span>
+                                                ${item.isCustom ? '<span class="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-semibold">Custom</span>' : ''}
+                                            </div>
+                                            <span class="text-[11px] text-slate-400">${daysText}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        ${statusBadge}
+                                        <select onchange="updateItemStatus('${item.id}', this.value)" class="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+                                            <option value="fully_stocked" ${item.status === 'fully_stocked' ? 'selected' : ''}>Fully Stocked (100%)</option>
+                                            <option value="in_stock" ${item.status === 'in_stock' ? 'selected' : ''}>In Stock (+40%)</option>
+                                            <option value="running_low" ${item.status === 'running_low' ? 'selected' : ''}>Running Low (-40%)</option>
+                                            <option value="out_of_stock" ${item.status === 'out_of_stock' ? 'selected' : ''}>Out of Stock (0%)</option>
+                                        </select>
+                                        <button onclick="deleteItem('${item.id}')" class="text-slate-400 hover:text-rose-600 text-lg font-bold px-1.5 cursor-pointer" title="Delete item">&times;</button>
+                                    </div>
+                                </li>
+                            `;
+                        });
+                        itemsHTML += `</ul>`;
+                    }
+                }
+
+                let attentionBadgeHTML = '';
+                if (attentionCount > 0) {
+                    attentionBadgeHTML = `<span class="px-2.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full">${attentionCount} need attention</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="bg-slate-100/80 border-b border-slate-200 px-5 py-3 flex justify-between items-center transition select-none">
+                        <div onclick="toggleRoom('${group.category}')" class="flex items-center space-x-2 cursor-pointer flex-1">
+                            <span class="text-slate-500 transform transition-transform duration-200 ${(forceOpen || !isCollapsed) ? 'rotate-90' : ''}">&#9656;</span>
+                            <h2 class="font-semibold text-slate-800">${group.category}</h2>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            ${attentionBadgeHTML}
+                            <span class="text-xs text-slate-500 font-medium">${group.items.length} items</span>
+                            <button onclick="deleteRoom('${group.category}')" class="text-slate-400 hover:text-rose-600 text-base font-bold px-1.5 cursor-pointer" title="Delete room">&times;</button>
+                        </div>
+                    </div>
+                    ${itemsHTML}
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('total-items-count').textContent = `Total Inventory: ${totalItemsCount} items across ${inventoryData.length} rooms (${totalAttentionCount} items need attention)`;
+        }
+
+        // Check duplicate while typing
+        function checkDuplicateWarning() {
+            const query = document.getElementById('new-item-name').value.toLowerCase().trim();
+            const warningBox = document.getElementById('duplicate-warning');
+            
+            if (!query) {
+                warningBox.classList.add('hidden');
+                warningBox.textContent = '';
+                return;
+            }
+
+            let foundLocations = [];
+            inventoryData.forEach(group => {
+                group.items.forEach(item => {
+                    if (item.name.toLowerCase() === query) {
+                        foundLocations.push(group.category);
+                    }
+                });
+            });
+
+            if (foundLocations.length > 0) {
+                warningBox.textContent = `⚠️ Note: "${document.getElementById('new-item-name').value.trim()}" already exists in: ${foundLocations.join(', ')}`;
+                warningBox.classList.remove('hidden');
+            } else {
+                warningBox.classList.add('hidden');
+                warningBox.textContent = '';
+            }
+        }
+
+        // Interactive Handlers
+        function updateItemStatus(itemId, newStatus) {
+            for (let group of inventoryData) {
+                let item = group.items.find(i => i.id === itemId);
+                if (item) {
+                    item.status = newStatus;
+                    if (newStatus === 'fully_stocked') {
+                        item.lastStockedDate = new Date().toISOString();
+                    }
+                    saveState();
+                    break;
+                }
+            }
+            renderApp();
+        }
+
+        function deleteItem(itemId) {
+            for (let group of inventoryData) {
+                let index = group.items.findIndex(i => i.id === itemId);
+                if (index !== -1) {
+                    group.items.splice(index, 1);
+                    break;
+                }
+            }
+            saveAndRender();
+        }
+
+        function deleteRoom(categoryName) {
+            const group = inventoryData.find(g => g.category === categoryName);
+            const itemCount = group ? group.items.length : 0;
+            
+            const confirmed = confirm(`Are you sure you want to delete "${categoryName}" and all its ${itemCount} items?`);
+            if (!confirmed) return;
+
+            inventoryData = inventoryData.filter(g => g.category !== categoryName);
+            delete collapsedRooms[categoryName];
+            saveAndRender();
+        }
+
+        // Item Modal Control
+        function openItemModal() {
+            document.getElementById('add-item-modal').classList.remove('hidden');
+            document.getElementById('new-item-name').focus();
+        }
+
+        function closeItemModal() {
+            document.getElementById('add-item-modal').classList.add('hidden');
+            document.getElementById('add-item-form').reset();
+            document.getElementById('duplicate-warning').classList.add('hidden');
+        }
+
+        function handleAddItem(event) {
+            event.preventDefault();
+            const name = document.getElementById('new-item-name').value.trim();
+            const categoryName = document.getElementById('new-item-category').value;
+
+            if (!name) return;
+
+            let group = inventoryData.find(g => g.category === categoryName);
+            if (group) {
+                const existsInRoom = group.items.some(i => i.name.toLowerCase() === name.toLowerCase());
+                if (existsInRoom) {
+                    alert(`"${name}" is already in ${categoryName}!`);
+                    return;
+                }
+
+                group.items.push({
+                    id: 'item_' + Math.random().toString(36).substring(2, 9),
+                    name: name,
+                    status: 'fully_stocked',
+                    lastStockedDate: new Date().toISOString(),
+                    isCustom: true
+                });
+            }
+
+            closeItemModal();
+            saveAndRender();
+        }
+
+        // Room Modal Control
+        function openRoomModal() {
+            document.getElementById('add-room-modal').classList.remove('hidden');
+            document.getElementById('new-room-name').focus();
+        }
+
+        function closeRoomModal() {
+            document.getElementById('add-room-modal').classList.add('hidden');
+            document.getElementById('add-room-form').reset();
+        }
+
+        function handleAddRoom(event) {
+            event.preventDefault();
+            const roomName = document.getElementById('new-room-name').value.trim();
+
+            if (!roomName) return;
+
+            const existing = inventoryData.find(g => g.category.toLowerCase() === roomName.toLowerCase());
+            if (!existing) {
+                inventoryData.push({
+                    category: roomName,
+                    items: []
+                });
+            }
+
+            closeRoomModal();
+            saveAndRender();
+        }
+
+        // Initial load
+        renderApp();
+    </script>
+</body>
+</html>
