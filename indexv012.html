@@ -12,7 +12,7 @@
     <!-- Header -->
     <header class="max-w-4xl mx-auto py-8 px-4">
         <h1 class="text-3xl font-bold text-slate-900">Home Consumables</h1>
-        <p class="text-slate-600 mt-1">Track household inventory, stock levels, and consumption duration across rooms.</p>
+        <p class="text-slate-600 mt-1">Track household inventory, custom restock dates, and consumption duration across rooms.</p>
     </header>
 
     <!-- Main Container -->
@@ -171,11 +171,14 @@
             document.getElementById('sort-select').value = currentSort;
         }
 
+        function getTodayDateString() {
+            return new Date().toISOString().split('T')[0];
+        }
+
         function initializeStorage() {
-            // Set default items to look like they were last restocked 14 days ago so the counter works nicely right away
             const pastDate = new Date();
             pastDate.setDate(pastDate.getDate() - 14);
-            const pastDateStr = pastDate.toISOString();
+            const pastDateStr = pastDate.toISOString().split('T')[0];
 
             inventoryData = defaultData.map(group => ({
                 category: group.category,
@@ -330,9 +333,10 @@
 
                             const daysAgo = getDaysAgo(item.lastStockedDate);
                             const daysText = daysAgo === 0 ? 'Restocked today' : `Restocked ${daysAgo}d ago`;
+                            const safeDateStr = item.lastStockedDate ? item.lastStockedDate.split('T')[0] : getTodayDateString();
 
                             itemsHTML += `
-                                <li class="px-5 py-3 flex items-center justify-between hover:bg-slate-50/50 transition">
+                                <li class="px-5 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition">
                                     <div class="flex items-center space-x-3">
                                         <div>
                                             <div class="flex items-center space-x-2">
@@ -342,7 +346,7 @@
                                             <span class="text-[11px] text-slate-400">${daysText}</span>
                                         </div>
                                     </div>
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex flex-wrap items-center gap-2">
                                         ${statusBadge}
                                         <select onchange="updateItemStatus('${item.id}', this.value)" class="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
                                             <option value="fully_stocked" ${item.status === 'fully_stocked' ? 'selected' : ''}>Fully Stocked (100%)</option>
@@ -350,6 +354,7 @@
                                             <option value="running_low" ${item.status === 'running_low' ? 'selected' : ''}>Running Low (-40%)</option>
                                             <option value="out_of_stock" ${item.status === 'out_of_stock' ? 'selected' : ''}>Out of Stock (0%)</option>
                                         </select>
+                                        <input type="date" value="${safeDateStr}" onchange="updateItemDate('${item.id}', this.value)" class="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer" title="Last restocked date">
                                         <button onclick="deleteItem('${item.id}')" class="text-slate-400 hover:text-rose-600 text-lg font-bold px-1.5 cursor-pointer" title="Delete item">&times;</button>
                                     </div>
                                 </li>
@@ -397,6 +402,7 @@
 
             let foundLocations = [];
             inventoryData.forEach(group => {
+                group.items.items = group.items || [];
                 group.items.forEach(item => {
                     if (item.name.toLowerCase() === query) {
                         foundLocations.push(group.category);
@@ -419,10 +425,18 @@
                 let item = group.items.find(i => i.id === itemId);
                 if (item) {
                     item.status = newStatus;
-                    // Only update lastStockedDate to today if they select "Fully Stocked (100%)"
-                    if (newStatus === 'fully_stocked') {
-                        item.lastStockedDate = new Date().toISOString();
-                    }
+                    saveState();
+                    break;
+                }
+            }
+            renderApp();
+        }
+
+        function updateItemDate(itemId, newDate) {
+            for (let group of inventoryData) {
+                let item = group.items.find(i => i.id === itemId);
+                if (item) {
+                    item.lastStockedDate = newDate;
                     saveState();
                     break;
                 }
@@ -484,7 +498,7 @@
                     id: 'item_' + Math.random().toString(36).substring(2, 9),
                     name: name,
                     status: 'fully_stocked',
-                    lastStockedDate: new Date().toISOString(),
+                    lastStockedDate: getTodayDateString(),
                     isCustom: true
                 });
             }
@@ -509,6 +523,7 @@
             event.preventDefault();
             const roomName = document.getElementById('new-room-name').value.trim();
 
+            if (-!roomName && roomName !== "") return;
             if (!roomName) return;
 
             const existing = inventoryData.find(g => g.category.toLowerCase() === roomName.toLowerCase());
