@@ -172,14 +172,18 @@
         }
 
         function initializeStorage() {
-            const todayStr = new Date().toISOString();
+            // Set default items to look like they were last restocked 14 days ago so the counter works nicely right away
+            const pastDate = new Date();
+            pastDate.setDate(pastDate.getDate() - 14);
+            const pastDateStr = pastDate.toISOString();
+
             inventoryData = defaultData.map(group => ({
                 category: group.category,
                 items: group.items.map(itemName => ({
                     id: 'item_' + Math.random().toString(36).substring(2, 9),
                     name: itemName,
                     status: 'fully_stocked',
-                    lastStockedDate: todayStr,
+                    lastStockedDate: pastDateStr,
                     isCustom: false
                 }))
             }));
@@ -415,6 +419,7 @@
                 let item = group.items.find(i => i.id === itemId);
                 if (item) {
                     item.status = newStatus;
+                    // Only update lastStockedDate to today if they select "Fully Stocked (100%)"
                     if (newStatus === 'fully_stocked') {
                         item.lastStockedDate = new Date().toISOString();
                     }
@@ -491,6 +496,7 @@
         // Room Modal Control
         function openRoomModal() {
             document.getElementById('add-room-modal').classList.remove('hidden');
+            document.getElementById('new-room-name').value = '';
             document.getElementById('new-room-name').focus();
         }
 
